@@ -1,12 +1,21 @@
 # Obsidian iCloud Windows Sync
 
+> **Original work by [gursimar](https://github.com/gursimar/obsidian-icloud-windows-sync).**
+> This repository is a personal fork. All core sync engine code is written by gursimar.
+> The only addition here is [`SETUP.md`](SETUP.md), which documents an alternative
+> Windows installation using a project venv and a direct `pythonw.exe` Task Scheduler
+> action instead of the `conhost + powershell` wrapper in the original README.
+> Raise issues and PRs on the [upstream repo](https://github.com/gursimar/obsidian-icloud-windows-sync).
+
+---
+
 A highly optimized, asynchronous, three-way sync engine designed to solve the notorious issues between Obsidian, iCloud Drive, and Windows.
 
 ![terminal image](assets/image.png)
 
 ## Installation & Setup
 1. Install iCloud for Windows [Link](https://support.apple.com/en-ca/103232)
-2. Clone the repository using `git clone git@github.com:gursimar/obsidian-icloud-windows-sync.git`
+2. Clone the repository using `git clone https://github.com/QuentinSylvestre/obsidian-icloud-windows-sync.git`
 3. Install as a package:
    ```bash
    pip install .
@@ -57,6 +66,10 @@ obsidian_sync/
 | **Daemon** | `run_continuously: true` | Runs continuously, polling every `poll_interval` seconds. |
 
 #### Autostart via Task Scheduler
+
+> **Alternative approach (this fork):** see [`SETUP.md`](SETUP.md) for a setup that uses
+> `pythonw.exe` directly from a project venv — no `run-sync.ps1` wrapper needed, no console
+> window, and no charmap encoding issues.
 
 Create `run-sync.ps1`:
 ```powershell

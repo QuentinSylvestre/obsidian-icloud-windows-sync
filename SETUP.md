@@ -1,5 +1,8 @@
 # Local Setup Notes
 
+> The sync engine is written by [gursimar](https://github.com/gursimar/obsidian-icloud-windows-sync).
+> This file documents an alternative Windows installation approach contributed by this fork.
+
 This documents how to install and run the sync daemon on Windows using a project venv
 and a direct `pythonw.exe` Task Scheduler action. It deviates from the upstream README
 in two ways: a project venv instead of system Python, and `pythonw.exe` launched directly
