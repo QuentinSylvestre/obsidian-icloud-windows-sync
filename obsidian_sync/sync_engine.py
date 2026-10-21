@@ -3,6 +3,7 @@ import asyncio
 import traceback
 import time
 from dataclasses import dataclass
+from datetime import datetime
 
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
@@ -54,6 +55,7 @@ class SyncEngine:
         self.file_queues: dict[str, asyncio.Queue[FileSyncEvent]] = {}
         self.file_workers: dict[str, asyncio.Task] = {}
         self.active_tasks: set[str] = set()
+        self.last_sync_time: datetime | None = None
         self.loop: asyncio.AbstractEventLoop | None = None
 
     def root_label(self, root: str) -> str:
@@ -174,8 +176,8 @@ class SyncEngine:
                 except asyncio.QueueEmpty:
                     break
             
-            self.active_tasks.add(rel_path)
             try:
+                self.active_tasks.add(rel_path)
                 if pending_count > 0:
                     self.log.info(
                         "QUEUE",
@@ -191,6 +193,7 @@ class SyncEngine:
                 await self.synchronizer.sync_wrapper(event.rel_path)
             finally:
                 self.active_tasks.discard(rel_path)
+                self.last_sync_time = datetime.now()
                 queue.task_done()
                 self.log.info(
                     "QUEUE",

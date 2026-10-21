@@ -384,5 +384,22 @@ class TestSyncWrapper:
         await eng.sync_wrapper("broken.md")
         eng.log.error.assert_called()
 
+class TestLastSyncTime:
+    @pytest.mark.asyncio
+    async def test_last_sync_time_set_after_worker_completes(self, engine):
+        # Mock sync_wrapper to raise so the finally-vs-try placement is tested:
+        # if last_sync_time = datetime.now() is in the try block, the raised
+        # exception skips it and the final assertion would fail.
+        engine.synchronizer.sync_wrapper = AsyncMock(side_effect=RuntimeError("forced error"))
+
+        assert engine.last_sync_time is None
+
+        engine.enqueue_file_event(FileSyncEvent("modified", "test.md"))
+        await asyncio.wait_for(engine.file_queues["test.md"].join(), timeout=2)
+        await asyncio.gather(engine.file_workers["test.md"], return_exceptions=True)
+
+        assert engine.last_sync_time is not None
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--tb=short"])
