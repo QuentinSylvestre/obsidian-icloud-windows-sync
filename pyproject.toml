@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "obsidian-sync"
-version = "1.2.0"
+version = "1.3.0"
 description = "Async three-way sync engine for Obsidian vaults between Windows and iCloud Drive"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,12 +14,21 @@ dependencies = [
     "aiofiles>=23.2.1",
     "pyyaml>=6.0",
     "watchdog>=4.0.0",
-    "pytest>=9.0.3",
-    "pytest-asyncio>=1.3.0",
+    "pystray>=0.19.5",
+    "Pillow>=10.0.0",
 ]
 
 [project.scripts]
 obsidian-sync = "obsidian_sync.__main__:main"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.23.0",
+]
+
 [tool.setuptools.packages.find]
 include = ["obsidian_sync*"]
+
+[tool.setuptools.package-data]
+"obsidian_sync" = ["assets/*"]
