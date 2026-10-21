@@ -1,0 +1,122 @@
+"""System tray icon, status tooltip, and control menu for obsidian-icloud-sync."""
+
+import os
+import subprocess
+import threading
+import time
+from pathlib import Path
+from typing import Callable
+
+from PIL import Image
+import pystray
+
+from obsidian_sync.sync_engine import SyncEngine
+from obsidian_sync.config import SyncConfig
+
+
+_shutdown_event: threading.Event = threading.Event()
+
+
+def _load_icon() -> Image.Image:
+    try:
+        return Image.open(Path(__file__).parent / "assets" / "icon.png")
+    except OSError:
+        return Image.new("RGBA", (16, 16), (60, 130, 200, 255))
+
+
+def _tooltip(engine: SyncEngine) -> str:
+    n = len(engine.active_tasks)  # capture ONCE, never read active_tasks again
+    if n > 0:
+        return f"Obsidian iCloud Sync \u2014 Syncing {n} files\u2026"
+    elif engine.last_sync_time is not None:
+        return f"Obsidian iCloud Sync \u2014 Idle \u00b7 Last sync {engine.last_sync_time.strftime('%H:%M')}"
+    else:
+        return "Obsidian iCloud Sync \u2014 Idle"
+
+
+def _ps_run(cmd: str, engine: SyncEngine) -> None:
+    try:
+        subprocess.run(
+            ["powershell", "-NonInteractive", "-Command", cmd],
+            capture_output=True,
+            timeout=15,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        engine.log.warn("TRAY", f"PowerShell timed out: {cmd[:60]}")
+
+
+def _ps_query(cmd: str, engine: SyncEngine) -> str:
+    try:
+        result = subprocess.run(
+            ["powershell", "-NonInteractive", "-Command", cmd],
+            capture_output=True,
+            timeout=10,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+            check=False,
+        )
+        return result.stdout.decode("utf-8", errors="replace").strip()
+    except Exception:
+        engine.log.warn("TRAY", f"PowerShell query failed: {cmd[:60]}")
+        return ""
+
+
+def _task_enabled(engine: SyncEngine) -> bool:
+    try:
+        state = _ps_query(
+            "Try { (Get-ScheduledTask -TaskName 'Obsidian iCloud Sync').State } Catch { 'Unknown' }",
+            engine,
+        )
+        return state.lower() != "disabled"
+    except Exception:
+        return False
+
+
+def _start_tooltip_updater(icon: pystray.Icon, engine: SyncEngine) -> None:
+    def _run():
+        while True:
+            time.sleep(2)
+            if _shutdown_event.is_set():  # check AFTER sleep — not before
+                break
+            try:
+                icon.title = _tooltip(engine)
+            except Exception:
+                break
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+
+def _build_menu(engine: SyncEngine, config: SyncConfig, shutdown_fn: Callable[[], None]) -> pystray.Menu:
+    def on_logs(icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        if engine.log.log_file and Path(engine.log.log_file).exists():
+            os.startfile(str(engine.log.log_file))
+
+    def on_toggle_autolaunch(icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        if _task_enabled(engine):
+            _ps_run("Disable-ScheduledTask -TaskName 'Obsidian iCloud Sync'", engine)
+        else:
+            _ps_run("Enable-ScheduledTask -TaskName 'Obsidian iCloud Sync'", engine)
+
+    def on_quit(icon: pystray.Icon, item: pystray.MenuItem) -> None:
+        _shutdown_event.set()
+        shutdown_fn()
+        icon.stop()
+        _ps_run("Stop-ScheduledTask -TaskName 'Obsidian iCloud Sync' -ErrorAction SilentlyContinue", engine)
+
+    return pystray.Menu(
+        pystray.MenuItem("Logs", on_logs),
+        pystray.MenuItem("Auto-launch", on_toggle_autolaunch, checked=lambda item: _task_enabled(engine)),
+        pystray.MenuItem("Quit", on_quit),
+    )
+
+
+def run_tray(engine: SyncEngine, config: SyncConfig, shutdown_fn: Callable[[], None]) -> None:
+    icon = pystray.Icon(
+        "obsidian-sync",
+        _load_icon(),
+        _tooltip(engine),
+        _build_menu(engine, config, shutdown_fn),
+    )
+    icon.run(setup=lambda i: _start_tooltip_updater(i, engine))

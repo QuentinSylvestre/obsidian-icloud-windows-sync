@@ -2,9 +2,10 @@
 
 > **Original work by [gursimar](https://github.com/gursimar/obsidian-icloud-windows-sync).**
 > This repository is a personal fork. All core sync engine code is written by gursimar.
-> The only addition here is [`SETUP.md`](SETUP.md), which documents an alternative
-> Windows installation using a project venv and a direct `pythonw.exe` Task Scheduler
-> action instead of the `conhost + powershell` wrapper in the original README.
+> Additions in this fork: a tray icon and desktop shortcut; and [`SETUP.md`](SETUP.md),
+> which documents an alternative Windows installation using a project venv and a direct
+> `pythonw.exe` Task Scheduler action instead of the `conhost + powershell` wrapper in
+> the original README.
 > Raise issues and PRs on the [upstream repo](https://github.com/gursimar/obsidian-icloud-windows-sync).
 
 ---
@@ -47,7 +48,7 @@ A highly optimized, asynchronous, three-way sync engine designed to solve the no
 
 ```
 obsidian_sync/
-├── __main__.py      # CLI entry point
+├── __main__.py      # Entry point — tray on main thread, sync loop on daemon thread
 ├── config.py        # YAML config loading & validation
 ├── logger.py        # Structured logging (console + file)
 ├── disk_io.py       # Atomic copy, delete, Windows API
@@ -55,7 +56,9 @@ obsidian_sync/
 ├── icloud_status.py # Windows file attributes for iCloud sync state
 ├── duplicates.py    # Startup duplicate/conflict scanner
 ├── sync_engine.py   # File watchers + per-file event queues
-└── sync_worker.py   # Three-way sync logic with atomic operations
+├── sync_worker.py   # Three-way sync logic with atomic operations
+├── tray.py          # System tray icon, status tooltip, and control menu
+└── assets/          # Bundled runtime icons (PNG + ICO)
 ```
 
 ### Modes of Operation
@@ -63,7 +66,7 @@ obsidian_sync/
 | Mode | Config | Behavior |
 |---|---|---|
 | **One-Shot** | `run_continuously: false` | Single full pass, then exits. Use with Task Scheduler. |
-| **Daemon** | `run_continuously: true` | Runs continuously, polling every `poll_interval` seconds. |
+| **Daemon** | `run_continuously: true` | Runs continuously, polling every `poll_interval` seconds. Displays a system tray icon; auto-launch toggle and Quit available in the tray menu |
 
 #### Autostart via Task Scheduler
 
@@ -129,3 +132,12 @@ All settings live in `config.yaml`:
 | `tiny_threshold` | `8 bytes` | Minimum file size to sync (prevents empty/placeholder files) |
 | `max_concurrent_io` | `50` | Maximum concurrent I/O operations |
 | `ignore.patterns` | `[]` | Exclude folders like `.obsidian/cache` |
+
+---
+
+## Dependencies
+- Python ≥ 3.11
+- pystray ≥ 0.19.5
+- Pillow ≥ 10.0.0
+- watchdog ≥ 4.0.0
+- aiofiles ≥ 23.2.1
