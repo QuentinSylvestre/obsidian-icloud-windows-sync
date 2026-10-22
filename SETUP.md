@@ -5,8 +5,9 @@
 
 This documents how to install and run the sync daemon on Windows using a project venv
 and a direct `pythonw.exe` Task Scheduler action. It deviates from the upstream README
-in two ways: a project venv instead of system Python, and `pythonw.exe` launched directly
-from Task Scheduler instead of the `conhost + powershell` wrapper the README describes.
+in three ways: a project venv instead of system Python, `pythonw.exe` launched directly
+from Task Scheduler instead of the `conhost + powershell` wrapper the README describes,
+and a system tray icon for status and control.
 
 ---
 
@@ -107,6 +108,41 @@ ignore:
 
 `workspace.json` and `workspace-mobile.json` are excluded by default in the package config
 (`config.py`). Tab layouts are intentionally device-specific and should not sync.
+
+---
+
+## Tray Icon
+
+When the sync daemon is running, a system tray icon appears in the Windows notification area.
+
+**Status tooltip** — hover over the icon to see current status:
+- "Syncing N files…" while files are being processed
+- "Idle · Last sync HH:MM" after the most recent sync completes
+- "Idle" if no sync has occurred yet in this session
+
+**Menu items:**
+- **Logs** — opens the current log file in the default text editor
+- **Auto-launch** — toggles whether the Task Scheduler task "Obsidian iCloud Sync" starts
+  at logon. Checked when the task is enabled; uses `Enable-ScheduledTask` /
+  `Disable-ScheduledTask` under the hood. The toggle does not start or stop a running
+  instance — it only controls future logon behaviour.
+- **Quit** — cancels the sync engine, stops the tray icon, and stops the scheduled task
+  (`Stop-ScheduledTask`)
+
+---
+
+## Desktop Shortcut
+
+Phase 3 creates a shortcut at `%USERPROFILE%\Desktop\Obsidian Sync.lnk`.
+
+Clicking the shortcut runs `Start-ScheduledTask -TaskName "Obsidian iCloud Sync"`, which
+starts the sync service without opening a console window (the Task Scheduler task already
+uses `pythonw.exe`).
+
+> **Note:** The `IconLocation` path embedded in the shortcut points to the `icon.ico` file
+> inside the cloned repository. If you move or rename the repo folder after the shortcut is
+> created, the icon will go missing (the shortcut still works, but shows a generic icon).
+> Re-run the shortcut creation step to fix it.
 
 ---
 

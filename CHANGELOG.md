@@ -3,6 +3,19 @@
 > **Upstream changelog from [gursimar/obsidian-icloud-windows-sync](https://github.com/gursimar/obsidian-icloud-windows-sync).**
 > All entries below are from the original author. This fork adds no code changes.
 
+## [1.3.0] - 2026-10-21
+
+### Added
+- System tray icon with sync status tooltip
+- Auto-launch toggle and Quit menu items
+- Desktop shortcut (`%USERPROFILE%\Desktop\Obsidian Sync.lnk`)
+- `obsidian_sync/assets/` with icon.png (256x256) and icon.ico
+- `last_sync_time` field to `SyncEngine`
+- Dependencies: `pystray>=0.19.5`, `Pillow>=10.0.0`
+
+### Changed
+- `__main__.py` threading model: tray runs on main thread, engine on daemon thread
+
 ## [1.2.0] - 2026-07-05
 
 ### Summary
