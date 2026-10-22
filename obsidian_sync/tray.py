@@ -87,10 +87,14 @@ def _task_enabled(engine: SyncEngine) -> bool:
 
 def on_toggle_autolaunch(icon: pystray.Icon, item: pystray.MenuItem, engine: SyncEngine) -> None:
     """Toggle the Task Scheduler task's auto-launch state."""
+    global _task_state_cache, _task_state_cache_time
     if _task_enabled(engine):
         _ps_run(f"Disable-ScheduledTask -TaskName '{_TASK_NAME}'", engine)
     else:
         _ps_run(f"Enable-ScheduledTask -TaskName '{_TASK_NAME}'", engine)
+    # Invalidate cache immediately so the checkmark reflects the new state on next render
+    _task_state_cache = None
+    _task_state_cache_time = 0.0
 
 
 def _start_tooltip_updater(
