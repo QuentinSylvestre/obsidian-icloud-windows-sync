@@ -1,7 +1,7 @@
 # Changelog
 
 > **Upstream changelog from [gursimar/obsidian-icloud-windows-sync](https://github.com/gursimar/obsidian-icloud-windows-sync).**
-> All entries below are from the original author. This fork adds no code changes.
+> All entries at 1.2.0 and below are from the original author. Entries from 1.3.0 onward are contributions from this fork.
 
 ## [1.3.0] - 2026-10-21
 

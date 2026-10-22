@@ -65,7 +65,7 @@ obsidian_sync/
 
 | Mode | Config | Behavior |
 |---|---|---|
-| **One-Shot** | `run_continuously: false` | Single full pass, then exits. Use with Task Scheduler. |
+| **One-Shot** | `run_continuously: false` | Single full pass, then exits. Use with Task Scheduler. Tray icon appears; exits automatically when sync pass completes (run_continuously not enforced in engine). |
 | **Daemon** | `run_continuously: true` | Runs continuously, polling every `poll_interval` seconds. Displays a system tray icon; auto-launch toggle and Quit available in the tray menu |
 
 #### Autostart via Task Scheduler

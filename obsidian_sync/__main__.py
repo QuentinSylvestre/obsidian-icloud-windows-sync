@@ -10,7 +10,7 @@ from .hasher import FileHasher
 from .disk_io import DiskIO
 from .duplicates import DuplicateScanner
 from .sync_engine import SyncEngine
-from obsidian_sync.tray import run_tray
+from .tray import run_tray
 
 
 def main():
@@ -35,6 +35,7 @@ def main():
     engine = SyncEngine(config, logger, hasher, disk_io, duplicates)
 
     _engine_ready = threading.Event()
+    _engine_failed = threading.Event()
     loop = asyncio.new_event_loop()
     _engine_task: list[asyncio.Task] = []
 
@@ -47,6 +48,9 @@ def main():
             loop.run_until_complete(t)
         except asyncio.CancelledError:
             pass
+        except Exception as e:
+            engine.log.warn("ENGINE", f"Engine thread died unexpectedly: {e}")
+            _engine_failed.set()
         finally:
             loop.close()
 
@@ -62,7 +66,7 @@ def main():
                 pass
 
     try:
-        run_tray(engine, config, _shutdown_engine)
+        run_tray(engine, _shutdown_engine, _engine_failed)
         engine_thread.join(timeout=10)
     except Exception:
         engine.log.warn("TRAY", "Tray failed to start, running headlessly")
