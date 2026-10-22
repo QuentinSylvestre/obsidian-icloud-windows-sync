@@ -133,16 +133,28 @@ When the sync daemon is running, a system tray icon appears in the Windows notif
 
 ## Desktop Shortcut
 
-Phase 3 creates a shortcut at `%USERPROFILE%\Desktop\Obsidian Sync.lnk`.
+A shortcut at `<Desktop>\Obsidian Sync.lnk` (where `<Desktop>` is your Windows Desktop folder — on OneDrive-synced machines this is typically `%OneDriveCommercial%\Desktop` rather than `%USERPROFILE%\Desktop`) is created once during setup.
 
 Clicking the shortcut runs `Start-ScheduledTask -TaskName "Obsidian iCloud Sync"`, which
-starts the sync service without opening a console window (the Task Scheduler task already
-uses `pythonw.exe`).
+starts the sync service without opening a console window.
 
-> **Note:** The `IconLocation` path embedded in the shortcut points to the `icon.ico` file
-> inside the cloned repository. If you move or rename the repo folder after the shortcut is
-> created, the icon will go missing (the shortcut still works, but shows a generic icon).
-> Re-run the shortcut creation step to fix it.
+To recreate the shortcut (e.g. after moving the repo or on a new machine), run:
+
+```powershell
+$desktop = [Environment]::GetFolderPath("Desktop")  # resolves OneDrive Desktop correctly
+$shell = New-Object -ComObject WScript.Shell
+$lnk = $shell.CreateShortcut("$desktop\Obsidian Sync.lnk")
+$lnk.TargetPath = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+$lnk.Arguments = "-WindowStyle Hidden -NonInteractive -Command `"Start-ScheduledTask 'Obsidian iCloud Sync'`""
+$lnk.WorkingDirectory = "<this-repo>"
+$lnk.IconLocation = "<this-repo>\obsidian_sync\assets\icon.ico,0"
+$lnk.Description = "Start Obsidian iCloud Sync"
+$lnk.Save()
+```
+
+> **Note:** If you move or rename the repo folder after the shortcut is created, the
+> `IconLocation` path becomes stale (the shortcut still works, but shows a generic icon).
+> Re-run the snippet above to fix it.
 
 ---
 

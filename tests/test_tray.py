@@ -77,7 +77,7 @@ def test_quit_handler_sequence():
     orig_thread_start = threading.Thread.start
 
     def recording_thread_start(self):
-        # Record daemon-thread start; don't actually start thread to avoid ps_run call
+        # Record that a daemon thread was started; also let it run so _ps_run gets called
         call_order.append("thread_started")
         # Do start so the daemon thread runs (its target is ps_run which is also patched)
         orig_thread_start(self)
