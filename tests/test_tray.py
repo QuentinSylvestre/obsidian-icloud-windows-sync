@@ -53,8 +53,8 @@ def test_load_icon_fallback():
 
 
 def test_quit_handler_sequence():
-    """on_quit sets shutdown event, calls shutdown_fn, starts Stop-ScheduledTask thread
-    BEFORE icon.stop(), then calls icon.stop()."""
+    """on_quit: thread for Stop-ScheduledTask is STARTED (thread.start called) before
+    icon.stop() is called — verifying F-05 code ordering, not background execution order."""
     import time
     from obsidian_sync import tray as tray_mod
 
@@ -66,8 +66,6 @@ def test_quit_handler_sequence():
     mock_item = MagicMock()
 
     call_order = []
-    orig_thread_init = threading.Thread.__init__
-
     captured = {}
 
     def capturing_MenuItem(text, action=None, **kwargs):
@@ -76,42 +74,68 @@ def test_quit_handler_sequence():
         captured[str(text)] = action
         return m
 
+    orig_thread_start = threading.Thread.start
+
+    def recording_thread_start(self):
+        # Record daemon-thread start; don't actually start thread to avoid ps_run call
+        call_order.append("thread_started")
+        # Do start so the daemon thread runs (its target is ps_run which is also patched)
+        orig_thread_start(self)
+
+    mock_icon.stop.side_effect = lambda: call_order.append("icon_stop")
+
     with patch.object(pystray, "MenuItem", side_effect=capturing_MenuItem), \
          patch.object(pystray, "Menu", return_value=MagicMock()), \
          patch.object(tray_mod, "_ps_run") as mock_ps_run, \
-         patch.object(tray_mod, "_task_enabled", return_value=True):
-
-        # Record icon.stop ordering
-        original_stop = mock_icon.stop
-        def recording_stop():
-            call_order.append("icon_stop")
-        mock_icon.stop.side_effect = recording_stop
-
-        # Record ps_run calls
-        def recording_ps_run(cmd, engine):
-            if "Stop-ScheduledTask" in cmd:
-                call_order.append("ps_stop_task")
-        mock_ps_run.side_effect = recording_ps_run
-
+         patch.object(tray_mod, "_task_enabled", return_value=True), \
+         patch.object(threading.Thread, "start", recording_thread_start):
         tray_mod._build_menu(mock_engine, mock_shutdown)
         assert "Quit" in captured, "Could not find quit callback"
         on_quit = captured["Quit"]
         on_quit(mock_icon, mock_item)
-        time.sleep(0.2)  # give background Stop-ScheduledTask thread time to run
+        time.sleep(0.1)  # wait for background thread to call _ps_run
 
     assert tray_mod._shutdown_event.is_set()
     mock_shutdown.assert_called_once()
     assert "icon_stop" in call_order, "icon.stop() was not called"
-    assert "ps_stop_task" in call_order, f"Stop-ScheduledTask _ps_run was not called; calls: {call_order}"
+    assert "thread_started" in call_order, "Stop-ScheduledTask daemon thread was not started"
 
-    # Ordering: Stop-ScheduledTask daemon thread must be started BEFORE icon.stop()
-    # Both are in call_order via side effects, so compare indices
-    task_pos = call_order.index("ps_stop_task")
+    # F-05: thread must be STARTED before icon.stop() is CALLED (code ordering check)
+    thread_pos = call_order.index("thread_started")
     stop_pos = call_order.index("icon_stop")
-    assert task_pos < stop_pos, (
-        f"Stop-ScheduledTask must execute before icon.stop() (F-05 ordering). "
+    assert thread_pos < stop_pos, (
+        f"F-05 violation: Stop-ScheduledTask thread.start() must precede icon.stop() call. "
         f"Got order: {call_order}"
     )
+
+    # Verify Stop-ScheduledTask PS command was dispatched
+    calls = [str(c) for c in mock_ps_run.call_args_list]
+    assert any("Stop-ScheduledTask" in c for c in calls), \
+        f"Expected Stop-ScheduledTask _ps_run call, got: {calls}"
+    tray_mod._shutdown_event.clear()
+
+
+def test_autolaunch_toggle_invalidates_cache():
+    """on_toggle_autolaunch resets _task_state_cache after dispatching the PS command (C-01)."""
+    from obsidian_sync import tray as tray_mod
+
+    tray_mod._shutdown_event.clear()
+    mock_engine = MagicMock()
+    mock_engine.log = MagicMock()
+
+    # Pre-seed a cache value so we can verify it is cleared
+    tray_mod._task_state_cache = "Ready"
+    tray_mod._task_state_cache_time = 9999.0
+
+    with patch.object(tray_mod, "_ps_run"), \
+         patch.object(tray_mod, "_task_enabled", return_value=True):
+        tray_mod.on_toggle_autolaunch(MagicMock(), MagicMock(), mock_engine)
+
+    assert tray_mod._task_state_cache is None, (
+        "Cache must be cleared after toggle so the next menu render reflects new state"
+    )
+    assert tray_mod._task_state_cache_time == 0.0
+
     tray_mod._shutdown_event.clear()
 
 
@@ -127,6 +151,7 @@ def test_headless_fallback_engine_survives_tray_error():
     assert any(
         "engine_thread.join()" in line and "timeout=" not in line
         for line in src.splitlines()
+        if not line.strip().startswith("#")  # exclude comment-only lines
     ), (
         "SC-5 contract violated: engine_thread.join() with no timeout not found in __main__.main(). "
         "The headless fallback requires an unbounded join to keep the main thread alive indefinitely."
