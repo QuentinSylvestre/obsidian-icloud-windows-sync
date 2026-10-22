@@ -159,4 +159,11 @@ def run_tray(
         _tooltip(engine, engine_failed),
         _build_menu(engine, shutdown_fn),
     )
-    icon.run(setup=lambda i: _start_tooltip_updater(i, engine, engine_failed))
+
+    def _setup(i: pystray.Icon) -> None:
+        # pystray: when a custom setup is provided, the caller must set
+        # visible = True (the default setup does this automatically).
+        i.visible = True
+        _start_tooltip_updater(i, engine, engine_failed)
+
+    icon.run(setup=_setup)
